@@ -1,0 +1,41 @@
+/* gearhead-tui — Textual stylesheet.
+
+   Layout is map-heavy: the engine paints a 100×40 canvas and we give
+   it as much room as the terminal allows. Side panels collapse first
+   if the terminal is narrow.
+*/
+
+Screen {
+    background: #000;
+}
+
+#body {
+    height: 1fr;
+}
+
+GearheadView {
+    background: #000;
+    color: #ddd;
+    height: 1fr;
+    width: 1fr;
+    border: round #1a1a1a;
+}
+
+.side {
+    width: 32;
+    height: 100%;
+    padding: 1;
+    border: round $primary;
+    background: $surface;
+}
+
+MessageLog {
+    height: 10;
+    border: round $primary;
+    background: $surface;
+    padding: 0 1;
+}
+
+Footer {
+    background: #0a0a0a;
+}
