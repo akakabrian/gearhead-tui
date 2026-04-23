@@ -352,9 +352,19 @@ class GearheadEngine:
 
 
 # Textual-key-name → bytes to send to GearHead.
-# GearHead 1 accepts both arrow keys (via ANSI) and vi keys for
-# direction. We send the vi keys — shorter, identical behaviour, and
-# robust to `crt` mode where arrow sequences are sometimes eaten.
+#
+# GearHead 1's console mode uses FPC's `crt` unit, which translates
+# real ANSI arrow sequences (`ESC [ A` etc.) internally to the DOS-era
+# two-byte `#0 + scancode` format expected by the keymap. The menus
+# (`conmenus.pp`) look at the keymap's North/South bindings, which
+# default to `'8'`/`'2'` — the numpad digits. In-game `PCAction`
+# (movement) reads the same keymap for direction.
+#
+# So we want to send *real ANSI arrow sequences* for directional keys:
+# they work in both menus and in-game through the single keymap path.
+# Letters pass through as themselves (engine reads them via ReadKey),
+# `Enter` → CR (`crt` converts to space internally via RPGKey), `Esc`
+# → `\x1b`, `Backspace` → `\x08` (converted to ESC by RPGKey).
 _KEY_MAP: dict[str, bytes] = {
     "enter":       b"\r",
     "return":      b"\r",
@@ -363,12 +373,19 @@ _KEY_MAP: dict[str, bytes] = {
     "backspace":   b"\x08",
     "delete":      b"\x7f",
     "space":       b" ",
-    "up":          b"k",
-    "down":        b"j",
-    "left":        b"h",
-    "right":       b"l",
-    "home":        b"y",     # nw in vi layout (upper-left diag)
-    "end":         b"n",     # se (lower-right diag)
-    "pageup":      b"u",     # ne
-    "pagedown":    b"b",     # sw
+    "up":          b"\x1b[A",
+    "down":        b"\x1b[B",
+    "right":       b"\x1b[C",
+    "left":        b"\x1b[D",
+    "home":        b"\x1b[H",
+    "end":         b"\x1b[F",
+    "pageup":      b"\x1b[5~",
+    "pagedown":    b"\x1b[6~",
+    "insert":      b"\x1b[2~",
+    "f1":          b"\x1bOP",
+    "f2":          b"\x1bOQ",
+    "f3":          b"\x1bOR",
+    "f4":          b"\x1bOS",
+    # Ctrl+L → form-feed; many terminal programs treat it as "repaint".
+    "ctrl+l":      b"\x0c",
 }
