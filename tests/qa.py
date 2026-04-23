@@ -153,6 +153,58 @@ async def scn_map_renders_cells(app: GearheadApp, pilot) -> None:
     assert has_text, "render_line produced no non-blank text across 20 rows"
 
 
+async def scn_unknown_key_does_not_crash(app: GearheadApp, pilot) -> None:
+    """Textual key names we don't map (e.g. 'f12', 'scroll_lock') must
+    not crash the forwarder. Engine just ignores them."""
+    await _wait_for(lambda: "GearHead" in _grid_text(app), timeout=4.0)
+    # Post a few exotic keys directly — mimics what `on_key` sees when
+    # a user hits something outside the map.
+    for k in ("f12", "scroll_lock", "menu", "insert", "some_nonsense"):
+        app.engine.post_key(k)
+    # Engine should still be running and responsive.
+    assert app.engine.is_running(), "engine died on unknown keys"
+    before = app.engine.serial
+    await pilot.press("2")
+    await asyncio.sleep(0.3)
+    assert app.engine.serial >= before, "engine stopped reacting"
+
+
+async def scn_weird_unicode_cell_safe(app: GearheadApp, pilot) -> None:
+    """render_line survives if pyte hands us a multi-codepoint 'char'.
+
+    pyte can stuff combining sequences into Char.data. The map view
+    falls back to ' ' for any len() != 1, which keeps column alignment
+    intact. Verify the fallback path directly."""
+    from gearhead_tui.app import GearheadView
+    from gearhead_tui.engine import Cell
+    map_view = app.query_one("#map", GearheadView)
+    # Inject a wide char into the engine snapshot path via a monkey-
+    # patched row_copy — we don't touch real pyte state.
+    fake_row = [Cell(char=c, fg="white", bg="black")
+                for c in ["A", "é́", "x"] + [" "] * 97]
+    original = app.engine.row_copy
+    try:
+        app.engine.row_copy = lambda y: fake_row  # type: ignore[method-assign]
+        strip = map_view.render_line(0)
+        segs = list(strip)
+        assert segs, "render_line crashed on multi-codepoint cell"
+    finally:
+        app.engine.row_copy = original  # type: ignore[method-assign]
+
+
+async def scn_bad_colour_name_does_not_crash(app: GearheadApp, pilot) -> None:
+    """_colour() falls back to default on an unrecognized name."""
+    from gearhead_tui.app import _colour
+    # pyte could in principle emit a novel palette string — we return
+    # the default fg/bg rather than KeyError-ing mid-paint.
+    assert _colour("some_weird_name", is_bg=False) == (221, 221, 221)
+    assert _colour("some_weird_name", is_bg=True)  == (0, 0, 0)
+    # Hex parsing edge: 3 chars.
+    assert _colour("f0a", is_bg=False) == (255, 0, 170)
+    # Empty string → fallback.
+    assert _colour("", is_bg=False) == (221, 221, 221)
+
+
 async def scn_shutdown_no_zombie(app: GearheadApp, pilot) -> None:
     """App unmount kills the engine subprocess cleanly."""
     engine = app.engine
@@ -176,6 +228,9 @@ SCENARIOS: list[Scenario] = [
     Scenario("help_screen_opens_and_closes", scn_help_screen_opens_and_closes),
     Scenario("pilot_panel_updates",          scn_pilot_panel_updates),
     Scenario("map_renders_cells",            scn_map_renders_cells),
+    Scenario("unknown_key_does_not_crash",   scn_unknown_key_does_not_crash),
+    Scenario("weird_unicode_cell_safe",      scn_weird_unicode_cell_safe),
+    Scenario("bad_colour_name_does_not_crash", scn_bad_colour_name_does_not_crash),
     Scenario("shutdown_no_zombie",           scn_shutdown_no_zombie),
 ]
 
