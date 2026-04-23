@@ -1,0 +1,19 @@
+[project]
+name = "gearhead-tui"
+version = "0.1.0"
+description = "Textual re-shell over GearHead: Arena (GearHead 1)"
+requires-python = ">=3.10"
+dependencies = [
+    "textual>=0.40",
+    "rich>=13",
+    "aiohttp>=3.9",
+    "pyte>=0.8",
+    "ptyprocess>=0.7",
+    "pexpect>=4.9",
+]
+
+[project.scripts]
+gearhead-tui = "gearhead_tui.app:run"
+
+[tool.setuptools.packages.find]
+include = ["gearhead_tui*"]
